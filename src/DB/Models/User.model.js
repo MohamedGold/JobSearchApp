@@ -15,14 +15,22 @@ export const roleTypes = { user: 'User', admin: 'Admin' };
 const userSchema = new Schema(
   {
     firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    lastName: {
+      type: String,
+      required: function () {
+        return this.provider !== providerTypes.google;
+      },
+      trim: true
+    },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
     provider: { type: String, enum: ['google', 'system'], default: 'system' },
     gender: { type: String, enum: ['Male', 'Female'], default: "Male" },
     DOB: {
       type: Date,
-      required: true,
+      required: function () {
+        return this.provider !== providerTypes.google;
+      },
       validate: {
         validator: function (v) {
           return v < new Date();
@@ -30,7 +38,12 @@ const userSchema = new Schema(
         message: props => `${props.value} is not a valid birth date!`
       }
     },
-    mobileNumber: { type: String, required: true },
+    mobileNumber: {
+      type: String,
+      required: function () {
+        return this.provider !== providerTypes.google;
+      }
+    },
     role: { type: String, enum: ['User', 'Admin'], default: 'User' },
     isConfirmed: { type: Boolean, default: false },
     deletedAt: { type: Date },
