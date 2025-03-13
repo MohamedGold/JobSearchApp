@@ -24,8 +24,8 @@ const userSchema = new Schema(
     },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
-    provider: { type: String, enum: ['google', 'system'], default: 'system' },
-    gender: { type: String, enum: ['Male', 'Female'], default: "Male" },
+    provider: { type: String, enum: Object.values(providerTypes), default: providerTypes.system },
+    gender: { type: String, enum: Object.values(genderTypes), default: genderTypes.male },
     DOB: {
       type: Date,
       required: function () {
@@ -44,7 +44,7 @@ const userSchema = new Schema(
         return this.provider !== providerTypes.google;
       }
     },
-    role: { type: String, enum: ['User', 'Admin'], default: 'User' },
+    role: { type: String, enum: Object.values(roleTypes), default: roleTypes.user },
     isConfirmed: { type: Boolean, default: false },
     deletedAt: { type: Date },
     bannedAt: { type: Date },

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as jobService from "./Services/job.service.js";
 import * as validators from "./job.validation.js";
-import { authentication } from "../../Middleware/auth.middleware.js";
+import { authentication } from "../../middleware/auth.middleware.js";
 import { validation } from "../../Middleware/validation.middleware.js";
 import { fileValidations, uploadCloudFile } from "../../utils/multer/cloud.multer.js";
 

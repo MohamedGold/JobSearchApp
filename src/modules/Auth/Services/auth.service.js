@@ -17,10 +17,15 @@ import crypto from 'crypto';
 export const SignUpService = asyncHandler(async (req, res, next) => {
 
   const { firstName, lastName, email, password, gender, DOB, mobileNumber } = req.body;
+  
   const existing = await dbService.findOne({ model: User, filter: { email } });
+  
   if (existing) return next(new Error("Email already exists", { cause: 409 }));
+
   const user = await dbService.create({ model: User, data: { firstName, lastName, email, password, gender, DOB, mobileNumber } });
+
   emailEvent.emit("sendConfirmEmail", { id: user._id, email: user.email });
+  
   return successResponse({ res, status: 201, data: user });
 
 });
@@ -89,12 +94,12 @@ export const SignInService = asyncHandler(async (req, res, next) => {
     access_token: generateToken({
       payload: { id: user._id },
       signature: isAdmin ? process.env.ADMIN_ACCESS_TOKEN : process.env.USER_ACCESS_TOKEN,
-      expiresIn: 3600
+      expiresIn: process.env.EXPIRESIN
     }),
     refresh_token: generateToken({
       payload: { id: user._id },
       signature: isAdmin ? process.env.ADMIN_REFRESH_TOKEN : process.env.USER_REFRESH_TOKEN,
-      expiresIn: 7 * 24 * 60 * 60
+      expiresIn: process.env.expiresinRefresh
     })
   };
 

@@ -5,6 +5,7 @@ import { cloud } from "../../../utils/multer/cloudinary.multer.js";
 import { compareHash } from "../../../utils/security/hash.security.js";
 import { Decryption, Encryption } from "../../../utils/encryption.utils.js";
 import { asyncHandler } from "../../../utils/response/error.response.js";
+import { Company } from "../../../DB/Models/Company.model.js";
 
 
 
@@ -41,7 +42,26 @@ export const getMyAccount = asyncHandler(async (req, res, next) => {
   if (user.mobileNumber) {
     user.mobileNumber = Decryption({ cipher: user.mobileNumber, secretKey: process.env.ENCRYPTION_KEY });
   }
-  return successResponse({ res, data: user });
+
+  // Determine displayRole based on company ownership and HR status
+  let displayRole = "User";
+  // Check if the user is a company owner (created a company)
+  const companyOwner = await dbService.findOne({ model: Company, filter: { createdBy: req.user._id } });
+  if (companyOwner) {
+    displayRole = "Company Owner";
+  } else {
+    // Check if the user is in any company's HRs array
+    const hrCompany = await dbService.findOne({ model: Company, filter: { HRs: req.user._id } });
+    if (hrCompany) {
+      displayRole = "HR";
+    }
+  }
+
+  // Append displayRole to the user object
+  const userObj = user.toObject();
+  userObj.displayRole = displayRole;
+
+  return successResponse({ res, data: userObj });
 
 });
 
@@ -73,6 +93,7 @@ export const updatePassword = asyncHandler(async (req, res, next) => {
   }
   user.password = newPassword;
   user.changeCredentialsTime = Date.now();
+  user.passwordUpdatedAt = Date.now();
   await user.save();
   return successResponse({ res, data: { message: "Password updated" } });
 

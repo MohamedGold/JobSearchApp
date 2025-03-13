@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Socket.IO Test Client</title>
+    <!-- Load Socket.IO client library from CDN -->
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      input,
+      button {
+        margin: 5px;
+      }
+      #chatContainer {
+        border: 1px solid #ccc;
+        padding: 10px;
+        height: 300px;
+        overflow-y: scroll;
+        margin-top: 10px;
+      }
+      #userInfo {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Socket.IO Test Client</h1>
+    <p>Open your browser's console for additional logs.</p>
+
+    <!-- Token input: read from URL if provided -->
+    <label for="tokenInput">Token:</label>
+    <input
+      type="text"
+      id="tokenInput"
+      size="80"
+      placeholder="Bearer YOUR_VALID_TOKEN_HERE"
+    /><br />
+    <button id="connectBtn">Connect</button>
+
+    <!-- Display user info -->
+    <div id="userInfo"></div>
+
+    <!-- Chat messages output -->
+    <div id="chatContainer"></div>
+
+    <!-- Form to send chat messages -->
+    <div style="margin-top: 10px">
+      <input
+        type="text"
+        id="messageInput"
+        placeholder="Type your message"
+        size="60"
+      />
+      <input type="text" id="destIdInput" placeholder="Destination User ID" />
+      <button id="sendMsgBtn">Send Message</button>
+    </div>
+
+    <!-- Button for job application event -->
+    <div style="margin-top: 10px">
+      <input type="text" id="jobIdInput" placeholder="Job ID" />
+      <input type="text" id="jobUserIdInput" placeholder="Applicant User ID" />
+      <button id="jobAppBtn">Send Job Application</button>
+    </div>
+
+    <!-- Inputs and button for kickUser event (visible only for HR/Owner) -->
+    <div id="kickSection" style="margin-top: 20px; display: none">
+      <label for="targetUserId">Target User ID:</label>
+      <input
+        type="text"
+        id="targetUserId"
+        placeholder="Enter target user ID"
+      /><br />
+      <label for="companyId">Company ID:</label>
+      <input type="text" id="companyId" placeholder="Enter company ID" /><br />
+      <button id="kickUserBtn">Kick User</button>
+    </div>
+
+    <script>
+      // Function to decode JWT payload
+      function parseJwt(token) {
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            window
+              .atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          return JSON.parse(jsonPayload);
+        } catch (e) {
+          console.error('Error parsing token:', e);
+          return null;
+        }
+      }
+
+      const tokenInput = document.getElementById('tokenInput');
+      const connectBtn = document.getElementById('connectBtn');
+
+      // Function to get current token value
+      const getToken = () => tokenInput.value;
+
+      let socket = null;
+
+      // Connect only when "Connect" button is clicked
+      connectBtn.addEventListener('click', () => {
+        if (!getToken().startsWith('Bearer ')) {
+          alert("Please enter a valid token with 'Bearer ' prefix.");
+          return;
+        }
+
+        socket = io('http://localhost:3000', {
+          auth: { authorization: getToken() },
+        });
+
+        socket.on('connect', () => {
+          console.log('Connected with socket id:', socket.id);
+          // Fetch user info from /user/me endpoint
+          fetch('http://localhost:3000/user/me', {
+            headers: { Authorization: getToken() },
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.data) {
+                const user = data.data;
+                const roleDisplay = user.displayRole
+                  ? user.displayRole
+                  : 'User';
+                const name =
+                  user.firstName && user.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user.username || 'Unknown';
+                document.getElementById(
+                  'userInfo'
+                ).innerText = `${roleDisplay}: ${name}`;
+                if (roleDisplay === 'HR' || roleDisplay === 'Company Owner') {
+                  document.getElementById('kickSection').style.display =
+                    'block';
+                }
+              }
+            })
+            .catch((err) => console.error('Error fetching user info:', err));
+        });
+
+        // Listen for socket events and update chat container in real time
+        socket.on('successMessage', (data) => {
+          appendMessage('messageSent: ' + data.message);
+        });
+
+        socket.on('newMessage', (data) => {
+          // Display received message with sender's name
+          console.log('Received newMessage event:', data);
+          appendMessage(
+            'messageReceived: ' +
+              data.message +
+              ' from ' +
+              (data.senderName || 'Unknown')
+          );
+        });
+
+        socket.on('jobApplicationReceived', (data) => {
+          appendMessage('Job Application: ' + data.message);
+        });
+
+        socket.on('kicked', (data) => {
+          appendMessage('Kicked: ' + data.message);
+          // Refresh the page after receiving the kick event
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        });
+
+        socket.on('socket_Error', (data) => {
+          appendMessage('Error: ' + data.message);
+        });
+      });
+
+      // Function to append messages to chat container
+      const appendMessage = (msg) => {
+        const chatContainer = document.getElementById('chatContainer');
+        const p = document.createElement('p');
+        p.innerText = msg;
+        chatContainer.appendChild(p);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      };
+
+      // Send message event: validate inputs before emitting and ensure destination is connected
+      document.getElementById('sendMsgBtn').addEventListener('click', () => {
+        const message = document.getElementById('messageInput').value.trim();
+        const destId = document.getElementById('destIdInput').value.trim();
+        if (!message) {
+          appendMessage('Please enter a message.');
+          return;
+        }
+        if (!destId) {
+          appendMessage('Please enter a destination user ID.');
+          return;
+        }
+        const tokenData = parseJwt(getToken().replace('Bearer ', ''));
+        const senderId = tokenData?.id; 
+
+        if (socket && senderId) {
+          socket.emit('sendMessage', {
+            message,
+            destId,
+            senderId,
+          });
+          appendMessage('messageSent: ' + message);
+        }
+      });
+
+      // Job application event: validate inputs before emitting
+      document.getElementById('jobAppBtn').addEventListener('click', () => {
+        const jobId = document.getElementById('jobIdInput').value.trim();
+        const userId = document.getElementById('jobUserIdInput').value.trim();
+        if (!jobId || !userId) {
+          appendMessage('Please enter both Job ID and Applicant User ID.');
+          return;
+        }
+        if (socket) {
+          socket.emit('jobApplication', { jobId, userId });
+        }
+      });
+
+      // Kick user event: validate inputs before emitting
+      document.getElementById('kickUserBtn').addEventListener('click', () => {
+        const targetUserId = document
+          .getElementById('targetUserId')
+          .value.trim();
+        const companyId = document.getElementById('companyId').value.trim();
+        if (!targetUserId || !companyId) {
+          appendMessage('Please enter both target user ID and company ID.');
+          return;
+        }
+        if (socket) {
+          socket.emit('kickUser', { targetUserId, companyId });
+        }
+      });
+    </script>
+  </body>
+</html>

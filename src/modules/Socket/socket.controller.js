@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { registerSocket, logOutSocketId, sendMessage, jobApplication } from "./Service/socket.service.js";
+import { registerSocket, logOutSocketId, sendMessage, jobApplication, kickUser } from "./Service/socket.service.js";
 
 let io;
 
@@ -9,6 +9,7 @@ export const runIo = (httpServer) => {
     await registerSocket(socket);
     await sendMessage(socket);
     await jobApplication(socket)
+    await kickUser(socket)
     await logOutSocketId(socket);
   });
 };

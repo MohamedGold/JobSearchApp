@@ -2,7 +2,7 @@ import * as dbService from "../../../DB/db.service.js";
 import { Company } from "../../../DB/Models/Company.model.js";
 import { successResponse } from "../../../utils/response/success.response.js";
 import { cloud } from "../../../utils/multer/cloudinary.multer.js";
-import { roleTypes } from "../../../DB/Models/User.model.js";
+import { roleTypes, User } from "../../../DB/Models/User.model.js";
 import { asyncHandler } from "../../../utils/response/error.response.js";
 
 
@@ -12,15 +12,31 @@ import { asyncHandler } from "../../../utils/response/error.response.js";
 
 export const addCompany = asyncHandler(async (req, res, next) => {
 
-  const { companyName, description, industry, address, numberOfEmployees, companyEmail } = req.body;
+  const { companyName, description, industry, address, numberOfEmployees, companyEmail, HRs } = req.body;
 
   const existing = await dbService.findOne({ model: Company, filter: { $or: [{ companyName }, { companyEmail }] } });
 
   if (existing) return next(new Error("Company already exists", { cause: 409 }));
 
+  const companyData = { companyName, description, industry, address, numberOfEmployees, companyEmail, createdBy: req.user._id };
+
+  if (HRs) {
+    // Check that each HR exists in the User collection and is not the company owner
+    for (const hrId of HRs) {
+      if (hrId.toString() === req.user._id.toString()) {
+        return next(new Error("Company owner cannot be listed as an HR", { cause: 400 }));
+      }
+      const hrUser = await dbService.findOne({ model: User, filter: { _id: hrId } });
+      if (!hrUser) {
+        return next(new Error("HR not found", { cause: 404 }));
+      }
+    }
+    companyData.HRs = HRs;
+  }
+
   const company = await dbService.create({
     model: Company,
-    data: { companyName, description, industry, address, numberOfEmployees, companyEmail, createdBy: req.user._id }
+    data: companyData
   });
 
   return successResponse({ res, status: 201, data: company });
