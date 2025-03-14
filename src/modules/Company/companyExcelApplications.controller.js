@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authentication } from "../../Middleware/auth.middleware.js";
+import { authentication } from "../../middleware/auth.middleware.js";
 import { exportCompanyApplicationsExcel } from "./Services/companyExcelApplications.service.js";
 
 const companyExcelController = Router();
