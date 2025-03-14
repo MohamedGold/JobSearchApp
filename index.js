@@ -34,6 +34,11 @@ async function bootstrap() {
   app.use(express.json());
   app.use("/uploads", express.static(path.resolve("./src/uploads")));
   app.use("/admin", adminGraphController);
+
+  //main router
+  app.get('/', async (req, res) => res.status(200).json({ message: "Job Search App is running" }));
+
+
   controllerHandler(app);
   database_connect();
   app.use(globalErrorHandling);
